@@ -54,7 +54,7 @@ Uses:
 
 ## Chunking Strategy
 
-The pipeline uses **RecursiveCharacterTextSplitter** from LangChain to split documents into manageable chunks:
+The pipeline currently uses **RecursiveCharacterTextSplitter** from LangChain to split documents into manageable chunks:
 
 ### Configuration
 - **Chunk Size**: 1000 characters (default, configurable via `Config.CHUNK_SIZE`)
@@ -89,3 +89,9 @@ app/
 - `pinecone-client`
 - `pymupdf` (PDF processing)
 - `python-dotenv`
+
+## Possible Improvements
+
+- **Evaluation Framework**: Implement a comprehensive evaluation system to measure retrieval quality (precision, recall) and answer accuracy using benchmark question-answer pairs from the Premier League reports
+- **Hybrid Search**: Combine vector similarity search with keyword-based search (BM25) to improve retrieval performance for queries that require exact term matching or better handling of numerical data
+- **Web Interface**: Develop a web-based UI (using Streamlit or FastAPI + React) to make the chatbot more accessible and provide features like conversation history persistence, document visualization, and export capabilities
