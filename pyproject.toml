@@ -1,0 +1,19 @@
+[project]
+name = "soccer-rag"
+version = "0.1.0"
+description = "RAG pipeline for querying soccer data using LangChain, OpenAI embeddings, and Pinecone vector store"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "black>=25.9.0",
+    "isort>=7.0.0",
+    "langchain>=1.0.3",
+    "langchain-community>=0.3.0",
+    "langchain-openai>=1.0.2",
+    "langchain-text-splitters>=0.2.0",
+    "langchain-pinecone>=0.2.13",
+    "pinecone>=5.0.0",
+    "python-dotenv>=1.2.1",
+    "pymupdf>=1.23.0",
+    "tqdm>=4.66.0",
+]
