@@ -1,7 +1,6 @@
 """Configuration management for the RAG pipeline."""
 import os
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
 

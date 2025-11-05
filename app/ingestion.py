@@ -1,6 +1,4 @@
 """Ingestion workflow for syncing vector store with datasets directory."""
-from pathlib import Path
-
 from langchain_openai import OpenAIEmbeddings
 
 from app.config import Config
