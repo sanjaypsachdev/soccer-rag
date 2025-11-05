@@ -45,7 +45,6 @@ def run_ingestion():
         model=Config.get_embeddings_model_name(),
         openai_api_key=openai_api_key,
         timeout=Config.get_embeddings_timeout(),
-        max_retries=Config.get_embeddings_max_retries(),
     )
     vectorstore.initialize_vectorstore(embeddings_model, show_progress=True)
 

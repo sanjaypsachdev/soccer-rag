@@ -10,12 +10,8 @@ from pinecone import Pinecone, ServerlessSpec
 
 # Constants
 DEFAULT_EMBEDDING_DIMENSION = 1536
-LARGE_EMBEDDING_DIMENSION = 3072
-INDEX_WAIT_TIMEOUT = 60
-INDEX_WAIT_INTERVAL = 2
 PROGRESS_UPDATE_INTERVAL = 5
 DEFAULT_BATCH_SIZE = 100
-DEFAULT_MAX_RETRIES = 3
 MAX_QUERY_RESULTS = 10000
 
 
@@ -67,11 +63,6 @@ class Vectorstore:
             test_embedding = embeddings.embed_query("test")
             return len(test_embedding)
         except Exception:
-            # Fallback to known dimensions based on model name
-            if hasattr(embeddings, 'model'):
-                model_str = str(embeddings.model).lower()
-                if 'text-embedding-3-large' in model_str:
-                    return LARGE_EMBEDDING_DIMENSION
             return DEFAULT_EMBEDDING_DIMENSION
 
     def _get_index_names(self) -> List[str]:
@@ -117,17 +108,13 @@ class Vectorstore:
             except Exception:
                 pass  # Continue waiting
 
-            elapsed = time.time() - start_time
-            if elapsed > INDEX_WAIT_TIMEOUT:
-                self._log("   ⚠️  Timeout waiting for index, attempting to proceed...", show_progress)
-                return False
-
             # Show progress every 5 seconds
+            elapsed = time.time() - start_time
             if show_progress and int(elapsed) - last_progress_time >= PROGRESS_UPDATE_INTERVAL:
                 print(f"   Still waiting... ({int(elapsed)}s elapsed)")
                 last_progress_time = int(elapsed)
 
-            time.sleep(INDEX_WAIT_INTERVAL)
+            time.sleep(2)  # Wait 2 seconds between checks
 
     def _get_index_dimension(self, index_info) -> Optional[int]:
         """Extract dimension from index info using multiple fallback methods."""
@@ -242,8 +229,7 @@ class Vectorstore:
     def add_documents(
         self, 
         documents: List[Document], 
-        batch_size: int = DEFAULT_BATCH_SIZE, 
-        max_retries: int = DEFAULT_MAX_RETRIES
+        batch_size: int = DEFAULT_BATCH_SIZE
     ):
         """
         Add documents to the vector store.
@@ -252,33 +238,15 @@ class Vectorstore:
         Args:
             documents: List of Document objects (can include metadata)
             batch_size: Number of documents to process in each batch
-            max_retries: Maximum number of retry attempts for failed batches
         """
         self._ensure_initialized()
 
         if not documents:
             return
 
-        total_batches = (len(documents) + batch_size - 1) // batch_size
-        
         for batch_idx in range(0, len(documents), batch_size):
             batch = documents[batch_idx:batch_idx + batch_size]
-            batch_num = (batch_idx // batch_size) + 1
-            
-            for attempt in range(max_retries):
-                try:
-                    self.vectorstore.add_documents(batch)
-                    break  # Success, move to next batch
-                except Exception as e:
-                    if attempt < max_retries - 1:
-                        wait_time = (attempt + 1) * 2  # Exponential backoff: 2s, 4s, 6s
-                        print(f"\n⚠️  Error adding batch {batch_num}/{total_batches}: {str(e)}")
-                        print(f"   Retrying in {wait_time} seconds... (attempt {attempt + 2}/{max_retries})")
-                        time.sleep(wait_time)
-                    else:
-                        print(f"\n❌ Failed to add batch {batch_num}/{total_batches} after {max_retries} attempts")
-                        print(f"   Error: {str(e)}")
-                        raise
+            self.vectorstore.add_documents(batch)
 
     def add_texts(self, texts: List[str]):
         """Add texts directly to the vector store."""
@@ -417,7 +385,7 @@ class Vectorstore:
                 self.delete_by_source_file(source_file)
                 if show_progress and iterator:
                     iterator.set_postfix(file=file_name, status="updating...")
-                self.add_documents(current_docs, batch_size=DEFAULT_BATCH_SIZE, max_retries=DEFAULT_MAX_RETRIES)
+                self.add_documents(current_docs, batch_size=DEFAULT_BATCH_SIZE)
                 stats["updated"] += len(current_docs)
                 if show_progress and iterator:
                     iterator.set_postfix(file=file_name, status="updated")
@@ -430,7 +398,7 @@ class Vectorstore:
             # New file - add
             if show_progress and iterator:
                 iterator.set_postfix(file=file_name, status="adding...")
-            self.add_documents(current_docs, batch_size=DEFAULT_BATCH_SIZE, max_retries=DEFAULT_MAX_RETRIES)
+            self.add_documents(current_docs, batch_size=DEFAULT_BATCH_SIZE)
             stats["added"] += len(current_docs)
             if show_progress and iterator:
                 iterator.set_postfix(file=file_name, status="added")
