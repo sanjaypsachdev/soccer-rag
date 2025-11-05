@@ -17,7 +17,7 @@ class Config:
     DEFAULT_CHUNK_OVERLAP = 100
     DEFAULT_K = 4
     DEFAULT_EMBEDDINGS_MODEL = "text-embedding-3-small"
-    DEFAULT_LLM_MODEL = "gpt-4o-mini"
+    DEFAULT_LLM_MODEL = "gpt-5-nano"
     DEFAULT_TIMEOUT = 60.0
     DEFAULT_MAX_RETRIES = 3
     DEFAULT_TEMPERATURE = 0.0
