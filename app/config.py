@@ -13,13 +13,12 @@ class Config:
     """Configuration class for managing environment variables and settings."""
     
     # Default values
-    CHUNK_SIZE = 1000
-    CHUNK_OVERLAP = 100
-    K = 4
-    EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL")
-    LLM_MODEL = os.getenv("LLM_MODEL")
-    TIMEOUT = 60.0
-    TEMPERATURE = os.getenv("TEMPERATURE")
+    CHUNK_SIZE = os.getenv("CHUNK_SIZE", 1000) 
+    CHUNK_OVERLAP = os.getenv("CHUNK_OVERLAP", 100)
+    TOP_K = os.getenv("TOP_K", 4)
+    EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "text-embedding-3-small")
+    LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
+    TEMPERATURE = os.getenv("TEMPERATURE", 0.0)
     
     @staticmethod
     def get_pinecone_api_key() -> str:
@@ -72,17 +71,12 @@ class Config:
     @staticmethod
     def get_default_k() -> int:
         """Get the default number of results to retrieve."""
-        return Config.K
+        return Config.TOP_K
     
     @staticmethod
     def get_embeddings_model_name() -> str:
         """Get the embeddings model name."""
         return Config.EMBEDDINGS_MODEL
-    
-    @staticmethod
-    def get_embeddings_timeout() -> float:
-        """Get the timeout for embeddings API calls."""
-        return Config.TIMEOUT
     
     @staticmethod
     def get_llm_model_name() -> str:

@@ -38,7 +38,6 @@ def run_chatbot():
     embeddings_model = OpenAIEmbeddings(
         model=Config.get_embeddings_model_name(),
         openai_api_key=openai_api_key,
-        timeout=Config.get_embeddings_timeout(),
     )
     
     print("\n[2/3] Connecting to vector store...")
@@ -51,7 +50,6 @@ def run_chatbot():
         model=Config.get_llm_model_name(),
         temperature=Config.get_llm_temperature(),
         api_key=openai_api_key,
-        timeout=Config.get_embeddings_timeout(),
     )
     
     # Create retriever
