@@ -71,11 +71,6 @@ The pipeline uses **RecursiveCharacterTextSplitter** from LangChain to split doc
    - `modified_time`: File modification timestamp
    - `page_number`: Page number from the source document
 
-### Benefits
-- **Overlap**: The 100-character overlap ensures context is preserved across chunk boundaries
-- **Recursive Splitting**: The splitter attempts to maintain semantic coherence by splitting at paragraph boundaries first, then sentences, then words
-- **Metadata Preservation**: Rich metadata enables accurate source attribution and change tracking
-
 ## Architecture
 
 ```
