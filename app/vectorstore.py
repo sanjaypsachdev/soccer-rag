@@ -5,8 +5,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 from langchain_core.documents import Document
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.runnables import RunnableParallel, RunnableLambda
 from langchain_pinecone import PineconeVectorStore
-from langchain_classic.retrievers.ensemble import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 from pinecone import Pinecone, ServerlessSpec
 
@@ -289,7 +290,7 @@ class Vectorstore:
         weights: Optional[List[float]] = None
     ):
         """
-        Get a hybrid retriever combining semantic and BM25 search.
+        Get a hybrid retriever combining semantic and BM25 search using LCEL.
         
         Args:
             k: Number of results to retrieve
@@ -297,7 +298,7 @@ class Vectorstore:
             weights: Weights for [semantic, bm25] (default: [0.5, 0.5])
         
         Returns:
-            EnsembleRetriever instance
+            BaseRetriever instance that combines both retrievers using LCEL
         """
         self._ensure_initialized()
         
@@ -321,17 +322,73 @@ class Vectorstore:
         if weights is None:
             weights = [0.5, 0.5]
         
+        semantic_weight, bm25_weight = weights
+        
         # Set k for BM25 retriever
         if hasattr(self._bm25_retriever, 'k'):
             self._bm25_retriever.k = k
         
-        # Create ensemble retriever
-        ensemble_retriever = EnsembleRetriever(
-            retrievers=[semantic_retriever, self._bm25_retriever],
-            weights=weights
+        # Create a function to combine and rerank results
+        def combine_results(inputs: Dict[str, List[Document]]) -> List[Document]:
+            """Combine results from both retrievers and rerank using weighted scores."""
+            semantic_docs = inputs.get("semantic", [])
+            bm25_docs = inputs.get("bm25", [])
+            
+            # Create a document scoring dictionary
+            doc_scores = {}
+            
+            # Score semantic results (inverse rank * weight)
+            for rank, doc in enumerate(semantic_docs, start=1):
+                doc_key = doc.page_content[:200]  # Use content as key for deduplication
+                score = semantic_weight * (1.0 / rank)
+                
+                if doc_key not in doc_scores:
+                    doc_scores[doc_key] = (doc, score)
+                else:
+                    # Combine scores if document appears in both results
+                    existing_doc, existing_score = doc_scores[doc_key]
+                    doc_scores[doc_key] = (existing_doc, existing_score + score)
+            
+            # Score BM25 results (inverse rank * weight)
+            for rank, doc in enumerate(bm25_docs, start=1):
+                doc_key = doc.page_content[:200]
+                score = bm25_weight * (1.0 / rank)
+                
+                if doc_key not in doc_scores:
+                    doc_scores[doc_key] = (doc, score)
+                else:
+                    # Combine scores if document appears in both results
+                    existing_doc, existing_score = doc_scores[doc_key]
+                    doc_scores[doc_key] = (existing_doc, existing_score + score)
+            
+            # Sort by combined score and return top k
+            sorted_docs = sorted(doc_scores.values(), key=lambda x: x[1], reverse=True)
+            return [doc for doc, _ in sorted_docs[:k]]
+        
+        # Create LCEL chain: parallel retrieval -> combine & rerank
+        hybrid_chain = (
+            RunnableParallel({
+                "semantic": semantic_retriever,
+                "bm25": self._bm25_retriever,
+            })
+            | RunnableLambda(combine_results)
         )
         
-        return ensemble_retriever
+        # Wrap in a BaseRetriever-compatible class
+        class HybridRetriever(BaseRetriever):
+            """LCEL-based hybrid retriever combining semantic and BM25."""
+            
+            def __init__(self, chain):
+                super().__init__()
+                self.chain = chain
+            
+            def _get_relevant_documents(self, query: str, *, run_manager=None) -> List[Document]:
+                return self.chain.invoke(query)
+            
+            async def _aget_relevant_documents(self, query: str, *, run_manager=None) -> List[Document]:
+                return await self.chain.ainvoke(query)
+        
+        return HybridRetriever(hybrid_chain)
     
     def _create_dummy_vector(self) -> List[float]:
         """Create a dummy zero vector for queries that require a vector."""
