@@ -35,6 +35,7 @@ def run_ingestion():
     vectorstore = Vectorstore(
         index_name=index_name,
         api_key=pinecone_api_key,
+        enable_hybrid_search=Config.get_enable_hybrid_search(),
     )
 
     # Initialize embeddings model
@@ -61,6 +62,9 @@ def run_ingestion():
     print(f"  - Updated: {stats['updated']} documents from changed files")
     print(f"  - Deleted: {stats['deleted']} documents from removed files")
     print(f"  - Unchanged: {stats['unchanged']} documents from unchanged files")
+    
+    if Config.get_enable_hybrid_search():
+        print("  - BM25 index rebuilt for hybrid search")
 
     print("\n✅ RAG pipeline completed successfully!")
     print(f"Vector store ready at index: {index_name}")

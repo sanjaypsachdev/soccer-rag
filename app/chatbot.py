@@ -19,7 +19,7 @@ def run_chatbot():
     
     # Get configuration
     index_name = Config.get_pinecone_index_name()
-    default_k = Config.get_default_k()
+    top_k = Config.get_top_k()
     pinecone_api_key = Config.get_pinecone_api_key()
     openai_api_key = Config.get_openai_api_key()
 
@@ -28,6 +28,7 @@ def run_chatbot():
     vectorstore = Vectorstore(
         index_name=index_name,
         api_key=pinecone_api_key,
+        enable_hybrid_search=Config.get_enable_hybrid_search(),
     )
     
     # Initialize embeddings model
@@ -53,16 +54,20 @@ def run_chatbot():
     )
     
     # Create retriever
-    retriever = vectorstore.as_retriever(k=default_k)
+    if Config.get_enable_hybrid_search():
+        weights = Config.get_hybrid_search_weights()
+        retriever = vectorstore.as_hybrid_retriever(k=top_k, weights=weights)
+    else:
+        retriever = vectorstore.as_retriever(k=top_k)
     
     # Create prompt template with conversation history support
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are a helpful assistant that answers questions about Premier League annual reports.
+        ("system", """You are a helpful assistant that answers questions about Soccer reports.
 
-Use ONLY the following context from the Premier League annual reports to answer the question. 
+Use ONLY the following context to answer the question. 
 If the answer is not in the context, say "I don't have enough information in the provided documents to answer this question."
 
-Context from Premier League documents:
+Context:
 {context}
 
 Answer based on the context above. Provide a clear, concise, and well-structured answer."""),
@@ -117,7 +122,7 @@ Answer based on the context above. Provide a clear, concise, and well-structured
     print("=" * 60)
     print()
     
-    k = default_k
+    k = top_k
     
     while True:
         try:
@@ -157,10 +162,14 @@ Answer based on the context above. Provide a clear, concise, and well-structured
             
             try:
                 # Update retriever k if changed
-                if k != default_k:
-                    retriever = vectorstore.as_retriever(k=k)
+                if k != top_k:
+                    if Config.get_enable_hybrid_search():
+                        weights = Config.get_hybrid_search_weights()
+                        retriever = vectorstore.as_hybrid_retriever(k=k, weights=weights)
+                    else:
+                        retriever = vectorstore.as_retriever(k=k)
                     qa_chain = create_qa_chain(retriever)
-                    default_k = k
+                    top_k = k
                 
                 # Get source documents first (for display)
                 source_docs = retriever.invoke(query)

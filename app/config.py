@@ -1,6 +1,7 @@
 """Configuration management for the RAG pipeline."""
 import os
 from pathlib import Path
+from typing import List
 
 from dotenv import load_dotenv
 
@@ -14,10 +15,13 @@ class Config:
     # Default values
     CHUNK_SIZE = os.getenv("CHUNK_SIZE", 1000) 
     CHUNK_OVERLAP = os.getenv("CHUNK_OVERLAP", 100)
-    TOP_K = os.getenv("TOP_K", 4)
+    TOP_K = int(os.getenv("TOP_K", 4))
     EMBEDDINGS_MODEL = os.getenv("EMBEDDINGS_MODEL", "text-embedding-3-small")
     LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
     TEMPERATURE = os.getenv("TEMPERATURE", 0.0)
+    ENABLE_HYBRID_SEARCH = os.getenv("ENABLE_HYBRID_SEARCH", "false").lower() == "true"
+    SEMANTIC_WEIGHT = float(os.getenv("SEMANTIC_WEIGHT", "0.7"))
+    BM25_WEIGHT = float(os.getenv("BM25_WEIGHT", "0.3"))
     
     @staticmethod
     def get_pinecone_api_key() -> str:
@@ -68,7 +72,7 @@ class Config:
         return Config.CHUNK_OVERLAP
     
     @staticmethod
-    def get_default_k() -> int:
+    def get_top_k() -> int:
         """Get the default number of results to retrieve."""
         return Config.TOP_K
     
@@ -86,4 +90,14 @@ class Config:
     def get_llm_temperature() -> float:
         """Get the temperature for LLM generation."""
         return Config.TEMPERATURE
+    
+    @staticmethod
+    def get_enable_hybrid_search() -> bool:
+        """Get whether hybrid search is enabled."""
+        return Config.ENABLE_HYBRID_SEARCH
+    
+    @staticmethod
+    def get_hybrid_search_weights() -> List[float]:
+        """Get weights for hybrid search [semantic, bm25]."""
+        return [Config.SEMANTIC_WEIGHT, Config.BM25_WEIGHT]
 

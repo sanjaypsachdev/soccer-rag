@@ -6,6 +6,8 @@ from typing import Dict, List, Optional, Set
 
 from langchain_core.documents import Document
 from langchain_pinecone import PineconeVectorStore
+from langchain_classic.retrievers.ensemble import EnsembleRetriever
+from langchain_community.retrievers import BM25Retriever
 from pinecone import Pinecone, ServerlessSpec
 
 # Constants
@@ -22,6 +24,7 @@ class Vectorstore:
         self,
         index_name: str,
         api_key: Optional[str] = None,
+        enable_hybrid_search: bool = False,
     ):
         """
         Initialize the Vectorstore.
@@ -46,6 +49,9 @@ class Vectorstore:
         self.vectorstore = None
         self._index = None
         self._embedding_dimension = None
+        self.enable_hybrid_search = enable_hybrid_search
+        self._bm25_retriever = None
+        self._all_documents = []
 
     def _ensure_initialized(self):
         """Ensure vectorstore is initialized."""
@@ -266,12 +272,66 @@ class Vectorstore:
     
     def as_retriever(self, k: int = 4, search_kwargs: Optional[Dict] = None):
         """Get a retriever from the vectorstore."""
+        if self.enable_hybrid_search:
+            return self.as_hybrid_retriever(k=k, search_kwargs=search_kwargs)
+        
         self._ensure_initialized()
         if search_kwargs is None:
             search_kwargs = {"k": k}
         else:
             search_kwargs.setdefault("k", k)
         return self.vectorstore.as_retriever(search_kwargs=search_kwargs)
+    
+    def as_hybrid_retriever(
+        self, 
+        k: int = 4, 
+        search_kwargs: Optional[Dict] = None,
+        weights: Optional[List[float]] = None
+    ):
+        """
+        Get a hybrid retriever combining semantic and BM25 search.
+        
+        Args:
+            k: Number of results to retrieve
+            search_kwargs: Additional search kwargs for semantic retriever
+            weights: Weights for [semantic, bm25] (default: [0.5, 0.5])
+        
+        Returns:
+            EnsembleRetriever instance
+        """
+        self._ensure_initialized()
+        
+        if search_kwargs is None:
+            search_kwargs = {"k": k}
+        else:
+            search_kwargs.setdefault("k", k)
+        
+        # Get semantic retriever
+        semantic_retriever = self.vectorstore.as_retriever(search_kwargs=search_kwargs)
+        
+        # Build BM25 retriever if not already built
+        if self._bm25_retriever is None:
+            self._build_bm25_retriever()
+        
+        if self._bm25_retriever is None:
+            # Fallback to semantic only if BM25 fails
+            return semantic_retriever
+        
+        # Set weights (default: equal weighting)
+        if weights is None:
+            weights = [0.5, 0.5]
+        
+        # Set k for BM25 retriever
+        if hasattr(self._bm25_retriever, 'k'):
+            self._bm25_retriever.k = k
+        
+        # Create ensemble retriever
+        ensemble_retriever = EnsembleRetriever(
+            retrievers=[semantic_retriever, self._bm25_retriever],
+            weights=weights
+        )
+        
+        return ensemble_retriever
     
     def _create_dummy_vector(self) -> List[float]:
         """Create a dummy zero vector for queries that require a vector."""
@@ -342,6 +402,38 @@ class Vectorstore:
                 source_files.add(match.metadata['source_file'])
         
         return source_files
+    
+    def _fetch_all_documents(self) -> List[Document]:
+        """Fetch all documents from Pinecone for BM25 indexing."""
+        self._ensure_initialized()
+        matches = self._query_with_filter()
+        documents = []
+        for match in matches:
+            metadata = match.metadata or {}
+            text = metadata.get('text', '') or metadata.get('page_content', '')
+            documents.append(Document(page_content=text, metadata=metadata))
+        return documents
+    
+    def _build_bm25_retriever(self, documents: Optional[List[Document]] = None):
+        """Build or rebuild BM25 retriever from documents."""
+        if documents is not None:
+            self._all_documents = documents
+        
+        if not self._all_documents:
+            # Fetch all documents from Pinecone for BM25 indexing
+            self._all_documents = self._fetch_all_documents()
+        
+        if self._all_documents:
+            # Use documents directly to preserve metadata if possible
+            # BM25Retriever.from_documents preserves metadata, from_texts does not
+            try:
+                self._bm25_retriever = BM25Retriever.from_documents(self._all_documents)
+            except (AttributeError, TypeError):
+                # Fallback to from_texts if from_documents is not available
+                texts = [doc.page_content for doc in self._all_documents]
+                self._bm25_retriever = BM25Retriever.from_texts(texts)
+        else:
+            self._bm25_retriever = None
     
     def _group_documents_by_source(self, documents: List[Document]) -> Dict[str, List[Document]]:
         """Group documents by their source file."""
@@ -480,6 +572,10 @@ class Vectorstore:
             for source_file in delete_iterator:
                 deleted_count = self.delete_by_source_file(source_file)
                 stats["deleted"] += deleted_count
+        
+        # Rebuild BM25 index if hybrid search is enabled
+        if self.enable_hybrid_search:
+            self._build_bm25_retriever()
         
         return stats
 
