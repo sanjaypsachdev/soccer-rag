@@ -110,11 +110,10 @@ app/
 
 ## Dependencies
 
-- `langchain`, `langchain-openai`, `langchain-pinecone`, `langchain-community`, `langchain-classic`
+- `langchain`, `langchain-openai`, `langchain-pinecone`, `langchain-community`
 - `pinecone-client`
 - `pymupdf` (PDF processing)
 - `rank-bm25` (BM25 keyword search for hybrid retrieval)
-- `python-dotenv`
 
 ## Features
 
