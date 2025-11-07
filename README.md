@@ -21,6 +21,11 @@ RAG pipeline for querying soccer data using LangChain, OpenAI embeddings, and Pi
    OPENAI_API_KEY=your_openai_api_key_here
    PINECONE_API_KEY=your_pinecone_api_key_here
    PINECONE_INDEX_NAME=soccer-rag
+   
+   # Optional: Hybrid search configuration
+   ENABLE_HYBRID_SEARCH=false  # Set to 'true' to enable hybrid search
+   SEMANTIC_WEIGHT=0.7         # Weight for semantic search (0.0-1.0)
+   BM25_WEIGHT=0.3              # Weight for BM25 keyword search (0.0-1.0)
    ```
 
 ## Usage
@@ -50,7 +55,28 @@ uv run python main.py --chat
 Uses:
 - `gpt-4o-mini` for answer generation
 - `text-embedding-3-small` for query embeddings
-- Retrieves top 4 relevant chunks (configurable via `Config.K`)
+- Retrieves top 4 relevant chunks (configurable via `TOP_K` environment variable)
+
+### Hybrid Search
+
+The pipeline supports **hybrid search** that combines semantic similarity search (via Pinecone embeddings) with keyword-based search (BM25). This improves retrieval for queries requiring exact term matching, numerical data, or specific keywords.
+
+**To enable hybrid search:**
+1. Set `ENABLE_HYBRID_SEARCH=true` in your `.env` file
+2. Optionally adjust weights:
+   - `SEMANTIC_WEIGHT`: Weight for semantic search (default: 0.7)
+   - `BM25_WEIGHT`: Weight for BM25 keyword search (default: 0.3)
+   - Weights should typically sum to 1.0 for best results
+
+**Benefits:**
+- **Semantic search** excels at understanding context and meaning
+- **BM25 search** excels at exact keyword matching and numerical queries
+- **Combined** they provide better coverage for diverse query types
+
+**Example queries that benefit from hybrid search:**
+- "Premier League revenue 2024" (keyword-heavy)
+- "What were the main financial highlights?" (semantic-heavy)
+- "How much did broadcasting rights generate?" (mixed)
 
 ## Chunking Strategy
 
@@ -75,23 +101,32 @@ The pipeline currently uses **RecursiveCharacterTextSplitter** from LangChain to
 
 ```
 app/
-├── config.py          # Environment configuration
+├── config.py          # Environment configuration & hybrid search settings
 ├── document_loader.py # PDF loading & chunking (PyMuPDF)
-├── embedder.py        # OpenAI embeddings
-├── vectorstore.py     # Pinecone operations
+├── vectorstore.py     # Pinecone operations & hybrid search (semantic + BM25)
 ├── ingestion.py       # Ingestion workflow
-└── chatbot.py         # Interactive Q&A
+└── chatbot.py         # Interactive Q&A with conversation history
 ```
 
 ## Dependencies
 
-- `langchain`, `langchain-openai`, `langchain-pinecone`
+- `langchain`, `langchain-openai`, `langchain-pinecone`, `langchain-community`, `langchain-classic`
 - `pinecone-client`
 - `pymupdf` (PDF processing)
+- `rank-bm25` (BM25 keyword search for hybrid retrieval)
 - `python-dotenv`
+
+## Features
+
+- ✅ **Hybrid Search**: Combines semantic (embedding-based) and keyword (BM25) retrieval for improved accuracy
+- ✅ **Intelligent Chunking**: Recursive text splitting with overlap for context preservation
+- ✅ **Conversation History**: Maintains context across multiple questions in a session
+- ✅ **Incremental Sync**: Only updates changed documents during ingestion
+- ✅ **Metadata Preservation**: Tracks source files, page numbers, and file hashes
 
 ## Possible Improvements
 
 - **Evaluation Framework**: Implement a comprehensive evaluation system to measure retrieval quality (precision, recall) and answer accuracy using benchmark question-answer pairs from the Premier League reports
-- **Hybrid Search**: Combine vector similarity search with keyword-based search (BM25) to improve retrieval performance for queries that require exact term matching or better handling of numerical data
 - **Web Interface**: Develop a web-based UI (using Streamlit or FastAPI + React) to make the chatbot more accessible and provide features like conversation history persistence, document visualization, and export capabilities
+- **Advanced Reranking**: Implement cross-encoder models for better result reranking
+- **Query Expansion**: Add query expansion techniques to improve retrieval recall
