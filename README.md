@@ -1,6 +1,6 @@
 # Soccer RAG
 
-RAG pipeline for querying soccer data using LangChain, OpenAI embeddings, and Pinecone vector store.
+RAG pipeline for ingesting Soccer related data embeddings into a vector database and a RAG based Chatbot for answering questions related to the Soccer related data.
 
 ![RAG Architecture](Rag-Arch.png)
 
