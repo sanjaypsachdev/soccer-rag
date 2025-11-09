@@ -2,6 +2,8 @@
 
 RAG pipeline for querying soccer data using LangChain, OpenAI embeddings, and Pinecone vector store.
 
+![RAG Architecture](Rag-Arch.png)
+
 ## Prerequisites
 
 - Python 3.13+
@@ -98,8 +100,6 @@ The pipeline currently uses **RecursiveCharacterTextSplitter** from LangChain to
    - `page_number`: Page number from the source document
 
 ## Architecture
-
-![RAG Architecture](Rag-Arch.png)
 
 ```
 app/
