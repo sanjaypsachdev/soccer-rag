@@ -55,8 +55,8 @@ uv run python main.py --chat
 ```
 
 Uses:
-- `gpt-4o-mini` for answer generation
-- `text-embedding-3-small` for query embeddings
+- Chat LLM for answer generation
+- Embeddings Model for generating query embeddings
 - Retrieves top 4 relevant chunks (configurable via `TOP_K` environment variable)
 
 ### Hybrid Search
