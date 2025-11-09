@@ -99,6 +99,8 @@ The pipeline currently uses **RecursiveCharacterTextSplitter** from LangChain to
 
 ## Architecture
 
+![RAG Architecture](Rag-Arch.png)
+
 ```
 app/
 ├── config.py          # Environment configuration & hybrid search settings
